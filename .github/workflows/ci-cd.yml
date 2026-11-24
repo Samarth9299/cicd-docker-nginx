@@ -13,7 +13,13 @@ jobs:
   # 1) Lint + unit tests on every push and pull request
   test:
     runs-on: ubuntu-latest
+    outputs:
+      cd_enabled: ${{ steps.secrets.outputs.enabled }}
     steps:
+      # Build/deploy only run once the Docker Hub + EC2 secrets are configured
+      - id: secrets
+        run: echo "enabled=${{ secrets.DOCKERHUB_TOKEN != '' && secrets.EC2_HOST != '' }}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
@@ -37,7 +43,7 @@ jobs:
   # 2) Build the image once and push it to Docker Hub (main branch only)
   build-push:
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && needs.test.outputs.cd_enabled == 'true'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
